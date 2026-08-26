@@ -1,6 +1,100 @@
 package org.example;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 public class Main {
+    static String todaysDate() {
+        LocalDate today = LocalDate.now();
+        DateTimeFormatter formatedDate = DateTimeFormatter.ofPattern("yyyy/MM-dd_");
+
+        String dateForAPI = today.format(formatedDate);
+
+        return dateForAPI;
+    }
+
+    static String buildApiUrl(String elChoice) {
+        String date = todaysDate();
+        String url = "https://www.elprisetjustnu.se/api/v1/prices/" + date + elChoice + ".json";
+
+        return url;
+    }
+
+    static String fetchPrices(String url) {
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            return response.body();
+        } catch (IOException e) {
+            IO.println("Nätverksfel: " + e.getMessage());
+            return "";
+        } catch (InterruptedException e) {
+            IO.println("Anropet avbröts");
+            return "";
+        }
+    }
+
+    static ElectricityPrice[] parsePrices(String json) {
+        ObjectMapper mapper = new ObjectMapper();
+
+        try {
+            return mapper.readValue(json, ElectricityPrice[].class);
+        } catch (IOException e) {
+            IO.println("Kunde inte läsa JSON: " + e.getMessage());
+            return new ElectricityPrice[0];
+        }
+    }
+
+    static boolean hasPrices(ElectricityPrice[] prices) {
+        if (prices.length == 0) {
+            IO.println("Du måste välja elområde först!");
+            return false;
+        }
+
+        return true;
+    }
+
+    static void showMinMaxAvg(ElectricityPrice[] prices) {
+        double min = prices[0].sekPerKwh();
+        double max = prices[0].sekPerKwh();
+        double sum = 0;
+
+
+        for (int i = 0; i < prices.length; i++) {
+            double currentPrice = prices[i].sekPerKwh();
+
+            if (currentPrice < min) {
+                min = currentPrice;
+            }
+
+            if (currentPrice > max) {
+                max = currentPrice;
+            }
+
+            sum += currentPrice;
+        }
+
+        double avg = sum / prices.length;
+
+        IO.println("Lägsta pris: " + String.format("%.2f", min * 100) + " öre/kwh");
+        IO.println("Högsta pris: " + String.format("%.2f", max * 100) + " öre/kwh");
+        IO.println("Medel pris: " + String.format("%.2f", avg * 100) + " öre/kwh");
+    }
+
 
     static void showMenu() {
         IO.println("\n1. Välj elområde (SE1, SE2, SE3, SE4)");
@@ -33,6 +127,7 @@ public class Main {
     static void main() {
         String elChoice = "";
         boolean menuRunning = true;
+        ElectricityPrice[] prices = new ElectricityPrice[0];
 
         while (menuRunning) {
 
@@ -43,15 +138,28 @@ public class Main {
             switch (choice) {
                 case "1":
                     elChoice = chooseArea();
+
+                    String url = buildApiUrl(elChoice);
+                    String json = fetchPrices(url);
+                    prices = parsePrices(json);
+
+                    IO.println("Antal prisposter: " + prices.length);
                     break;
                 case "2":
-                    IO.println("Min, Max och Medelpris");
+                    if (hasPrices(prices)) {
+                        IO.println("Min, Max och Medelpris i område: " + elChoice);
+                        showMinMaxAvg(prices);
+                    }
                     break;
                 case "3":
-                    IO.println("Sortera priser (lägst till högst)");
+                    if (hasPrices(prices)) {
+                        IO.println("Sortera priser (lägst till högst)");
+                    }
                     break;
                 case "4":
-                    IO.println("Bästa laddningstid (4h sammanhängande)");
+                    if (hasPrices(prices)) {
+                        IO.println("Bästa laddningstid (4h sammanhängande)");
+                    }
                     break;
                 case "e":
                     IO.println("Avslut");
