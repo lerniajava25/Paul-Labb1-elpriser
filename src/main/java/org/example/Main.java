@@ -7,6 +7,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Comparator;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -90,9 +92,52 @@ public class Main {
 
         double avg = sum / prices.length;
 
-        IO.println("Lägsta pris: " + String.format("%.2f", min * 100) + " öre/kwh");
-        IO.println("Högsta pris: " + String.format("%.2f", max * 100) + " öre/kwh");
-        IO.println("Medel pris: " + String.format("%.2f", avg * 100) + " öre/kwh");
+        IO.println("Lägsta pris: " + String.format("%.2f", min * 100) + " öre/kWh");
+        IO.println("Högsta pris: " + String.format("%.2f", max * 100) + " öre/kWh");
+        IO.println("Medel pris: " + String.format("%.2f", avg * 100) + " öre/kWh");
+    }
+
+    static HourlyPrice[] calculateHourlyPrices(ElectricityPrice[] prices) {
+        HourlyPrice[] hourlyPrices = new HourlyPrice[24];
+
+        for (int hour = 0; hour < 24; hour++) {
+            int startIndex = hour * 4;
+
+            double price1 = prices[startIndex].sekPerKwh();
+            double price2 = prices[startIndex + 1].sekPerKwh();
+            double price3 = prices[startIndex + 2].sekPerKwh();
+            double price4 = prices[startIndex + 3].sekPerKwh();
+
+            double hourlyAvg = (price1 + price2 + price3 + price4) / 4;
+
+            hourlyPrices[hour] = new HourlyPrice(hour, hourlyAvg);
+        }
+
+        return hourlyPrices;
+    }
+
+    static void showSortedPrices(ElectricityPrice[] prices) {
+        HourlyPrice[] hourlyPrices = calculateHourlyPrices(prices);
+
+        Arrays.sort(
+                hourlyPrices,
+                Comparator.comparingDouble(HourlyPrice::price)
+        );
+
+        for (int i = 0; i < hourlyPrices.length; i++) {
+            int hour = hourlyPrices[i].hour();
+
+            String formattedStartHour = String.format("%02d", hour);
+            String formattedEndHour = String.format("%02d", hour + 1);
+
+            IO.println(
+                    formattedStartHour + ":00-" + formattedEndHour + ":00: " +
+                            String.format("%.2f", hourlyPrices[i].price() * 100) +
+                            " öre/kWh"
+            );
+        }
+
+
     }
 
 
@@ -153,12 +198,13 @@ public class Main {
                     break;
                 case "3":
                     if (hasPrices(prices)) {
-                        IO.println("Sortera priser (lägst till högst)");
+                        IO.println("Sorterar priser (lägst till högst) i område: " + elChoice);
+                        showSortedPrices(prices);
                     }
                     break;
                 case "4":
                     if (hasPrices(prices)) {
-                        IO.println("Bästa laddningstid (4h sammanhängande)");
+                        IO.println("Bästa laddningstid (4h sammanhängande) i område: " + elChoice);
                     }
                     break;
                 case "e":
