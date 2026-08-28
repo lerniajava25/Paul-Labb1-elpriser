@@ -136,8 +136,35 @@ public class Main {
                             " öre/kWh"
             );
         }
+    }
 
+    static void showBestChargingTime(ElectricityPrice[] prices) {
+        HourlyPrice[] hourlyPrices = calculateHourlyPrices(prices);
 
+        double lowestTotal = Double.MAX_VALUE;
+        int bestStartHour = 0;
+
+        for (int start = 0; start <= 20; start++) {
+            double total =
+                    hourlyPrices[start].price() +
+                            hourlyPrices[start + 1].price() +
+                            hourlyPrices[start + 2].price() +
+                            hourlyPrices[start + 3].price();
+
+            if (total < lowestTotal) {
+                lowestTotal = total;
+                bestStartHour = start;
+            }
+        }
+
+        int endHour = bestStartHour + 4;
+        double avg = lowestTotal / 4;
+
+        String start = String.format("%02d", bestStartHour);
+        String end = String.format("%02d", endHour);
+
+        IO.println("Bästa laddningstiden är: " + start + ":00-" + end + ":00");
+        IO.println("Medelpris: " + String.format("%.2f", avg * 100) + " öre/kWh");
     }
 
 
@@ -205,6 +232,7 @@ public class Main {
                 case "4":
                     if (hasPrices(prices)) {
                         IO.println("Bästa laddningstid (4h sammanhängande) i område: " + elChoice);
+                        showBestChargingTime(prices);
                     }
                     break;
                 case "e":
